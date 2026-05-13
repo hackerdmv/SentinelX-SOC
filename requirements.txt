@@ -1,0 +1,13 @@
+psutil
+requests
+dnspython
+scapy
+email-validator
+beautifulsoup4
+tldextract
+fuzzywuzzy
+python-Levenshtein
+rich
+colorama
+flask
+pyinstaller

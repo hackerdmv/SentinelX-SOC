@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>SentinelX SOC</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #020403;
+    color: #00ff88;
+    font-family: Consolas, monospace;
+}
+
+.screen {
+    width: 920px;
+    margin: 25px auto;
+    border: 1px solid #00ff88;
+    background: #050805;
+    padding: 15px;
+    box-shadow: 0 0 25px #003d22;
+}
+
+.topbar {
+    background: #00ff88;
+    color: #001b0d;
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+input, textarea {
+    width: 100%;
+    background: #010201;
+    color: #00ff88;
+    border: 1px solid #006b3a;
+    padding: 8px;
+    font-family: Consolas, monospace;
+}
+
+textarea { height: 100px; }
+
+button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    background: #00ff88;
+    color: #001b0d;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.status {
+    margin-top: 12px;
+    padding: 10px;
+    background: #031107;
+    border-left: 4px solid #00ff88;
+}
+
+.title {
+    margin-top: 15px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #004d2a;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.result {
+    margin-top: 8px;
+    padding: 10px;
+    background: #010201;
+    border: 1px solid #004d2a;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.btn {
+    display: inline-block;
+    margin-top: 6px;
+    margin-right: 6px;
+    padding: 6px 10px;
+    background: #00ff88;
+    color: #001b0d;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.critical { color: #ff3333; font-weight: bold; }
+.medium { color: #ffcc00; font-weight: bold; }
+.safe { color: #00ff88; font-weight: bold; }
+
+#map {
+    height: 350px;
+    margin-top: 15px;
+    border: 1px solid #00ff88;
+}
+
+.footer {
+    text-align: center;
+    padding: 10px;
+    border-top: 1px solid #003d22;
+    font-size: 12px;
+    margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="screen">
+
+    <div class="topbar">
+        <span>SENTINELX SOC</span>
+        <span>ACTIVE DEFENSE + MONITORAMENTO</span>
+    </div>
+
+    <h1>SentinelX SOC</h1>
+    <p>Cyber Threat Analyzer | VirusTotal | GeoIP | Shodan | IOC | Monitoramento</p>
+
+    <form method="POST">
+        <label>URL</label>
+        <input name="url" placeholder="https://exemplo.com">
+
+        <label>Email Header</label>
+        <textarea name="header" placeholder="Cole aqui o cabeçalho completo do e-mail"></textarea>
+
+        <button>[ ANALISAR ]</button>
+    </form>
+
+    <div class="status">
+        Status: {{ status }}
+    </div>
+
+    {% if error %}
+    <div class="title">ERRO</div>
+    <div class="result"><span class="critical">{{ error }}</span></div>
+    {% endif %}
+
+    {% if result %}
+    <div class="title">CLASSIFICAÇÃO</div>
+    <div class="result">
+Severidade: {{ result.get("severity", "N/A") }}
+Score: {{ result.get("final_score", 0) }}
+
+{% if result.get("final_score", 0) >= 80 %}
+<span class="critical">🚨 ATAQUE CRÍTICO DETECTADO - BLOQUEAR IMEDIATAMENTE 🚨</span>
+{% elif result.get("severity") == "ALTO" %}
+<span class="critical">AÇÃO: BLOQUEAR E MONITORAR</span>
+{% elif result.get("severity") == "MÉDIO" %}
+<span class="medium">AÇÃO: INVESTIGAR</span>
+{% else %}
+<span class="safe">AÇÃO: OK</span>
+{% endif %}
+    </div>
+
+    {% set url_result = result.get("url", {}) %}
+    {% if url_result %}
+    <div class="title">URL ANALYZER</div>
+    <div class="result">
+URL: {{ url_result.get("url", "N/A") }}
+Domínio: {{ url_result.get("domain", "N/A") }}
+HTTPS: {{ url_result.get("https", "N/A") }}
+Encurtador: {{ url_result.get("shortener", "N/A") }}
+Palavras suspeitas: {{ url_result.get("suspicious_keywords", []) }}
+Score Local: {{ url_result.get("risk_score", 0) }}
+    </div>
+
+    {% set vt = url_result.get("virustotal", {}) %}
+    {% if vt %}
+    <div class="title">VIRUSTOTAL</div>
+    <div class="result">
+Ativo: {{ vt.get("enabled", "N/A") }}
+Malicious: {{ vt.get("malicious", 0) }}
+Suspicious: {{ vt.get("suspicious", 0) }}
+Harmless: {{ vt.get("harmless", 0) }}
+Undetected: {{ vt.get("undetected", 0) }}
+Erro: {{ vt.get("error", None) }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% set email = result.get("email", {}) %}
+    {% if email %}
+    <div class="title">EMAIL ANALYZER</div>
+    <div class="result">
+Return-Path: {{ email.get("return_path", "N/A") }}
+Reply-To: {{ email.get("reply_to", "N/A") }}
+SPF: {{ email.get("spf", "N/A") }}
+DKIM: {{ email.get("dkim", "N/A") }}
+DMARC: {{ email.get("dmarc", "N/A") }}
+IP: {{ email.get("origin_ip", "N/A") }}
+Score: {{ email.get("risk_score", 0) }}
+    </div>
+    {% endif %}
+
+    {% set geoip = result.get("geoip", {}) %}
+    {% if geoip and geoip.get("enabled") %}
+    <div class="title">GEOIP</div>
+    <div class="result">
+IP: {{ geoip.get("ip", "N/A") }}
+País: {{ geoip.get("country", "N/A") }}
+Região: {{ geoip.get("region", "N/A") }}
+Cidade: {{ geoip.get("city", "N/A") }}
+Latitude: {{ geoip.get("lat", "N/A") }}
+Longitude: {{ geoip.get("lon", "N/A") }}
+ISP: {{ geoip.get("isp", "N/A") }}
+Org: {{ geoip.get("org", "N/A") }}
+ASN: {{ geoip.get("asn", "N/A") }}
+Erro: {{ geoip.get("error", None) }}
+    </div>
+
+    {% if geoip.get("lat") and geoip.get("lon") %}
+    <div class="title">MAPA DE ATAQUE — ORIGEM → ALVO</div>
+    <div id="map"></div>
+    {% endif %}
+    {% endif %}
+
+    {% set shodan = result.get("shodan", {}) %}
+    {% if shodan and shodan.get("enabled") %}
+    <div class="title">SHODAN IP INTELLIGENCE</div>
+    <div class="result">
+IP: {{ shodan.get("ip", "N/A") }}
+ORG: {{ shodan.get("org", "N/A") }}
+ISP: {{ shodan.get("isp", "N/A") }}
+Portas: {{ shodan.get("ports", []) }}
+Serviços: {{ shodan.get("services", []) }}
+Erro: {{ shodan.get("error", None) }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if report_html %}
+    <div class="title">RELATÓRIO ATUAL</div>
+    <div class="result">
+<a class="btn" href="/report/html/{{ report_html }}">[ ABRIR HTML ]</a>
+<a class="btn" href="/report/json/{{ report_json }}">[ BAIXAR JSON ]</a>
+    </div>
+    {% endif %}
+
+    {% if campaigns %}
+    <div class="title">CAMPANHAS</div>
+    {% for c in campaigns %}
+    <div class="result">
+{{ c.get("type", "N/A") }} → {{ c.get("value", "N/A") }} ({{ c.get("count", 0) }})
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if monitor_alerts %}
+    <div class="title">MONITORAMENTO AUTOMÁTICO</div>
+    {% for a in monitor_alerts %}
+    <div class="result">
+Data: {{ a.get("timestamp", "N/A") }}
+Tipo: {{ a.get("type", "N/A") }}
+Alvo: {{ a.get("target", "N/A") }}
+Score: {{ a.get("score", 0) }}
+Severidade: {{ a.get("severity", "N/A") }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if reports %}
+    <div class="title">HISTÓRICO DAS 3 ÚLTIMAS ANÁLISES</div>
+    {% for r in reports %}
+    <div class="result">
+{{ r.get("created", "N/A") }}
+
+<a class="btn" href="/report/html/{{ r.get("html") }}">[ ABRIR ]</a>
+<a class="btn" href="/report/json/{{ r.get("json") }}">[ JSON ]</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="footer">
+        Davi Vasques - Hacker Ético
+    </div>
+
+</div>
+
+{% if result %}
+{% set geoip = result.get("geoip", {}) %}
+{% if geoip and geoip.get("enabled") and geoip.get("lat") and geoip.get("lon") %}
+<script>
+var attackerLat = {{ geoip.get("lat") }};
+var attackerLon = {{ geoip.get("lon") }};
+
+var targetLat = -22.7592;
+var targetLon = -43.4511;
+
+var map = L.map('map').setView([0, 0], 2);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'OpenStreetMap'
+}).addTo(map);
+
+var attacker = L.marker([attackerLat, attackerLon]).addTo(map);
+attacker.bindPopup(
+    "<b>ORIGEM</b><br>" +
+    "IP: {{ geoip.get("ip", "N/A") }}<br>" +
+    "País: {{ geoip.get("country", "N/A") }}<br>" +
+    "Cidade: {{ geoip.get("city", "N/A") }}"
+);
+
+var target = L.marker([targetLat, targetLon]).addTo(map);
+target.bindPopup("<b>ALVO</b><br>Brasil");
+
+var line = L.polyline(
+    [
+        [attackerLat, attackerLon],
+        [targetLat, targetLon]
+    ],
+    {
+        color: '#00ff88',
+        weight: 3,
+        opacity: 0.9
+    }
+).addTo(map);
+
+map.fitBounds(line.getBounds(), {
+    padding: [40, 40]
+});
+</script>
+{% endif %}
+{% endif %}
+
+</body>
+</html>
