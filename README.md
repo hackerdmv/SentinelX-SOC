@@ -4,6 +4,10 @@ O **SentinelX SOC** é uma ferramenta de análise de ameaças cibernéticas dese
 
 O projeto simula um ambiente de **Security Operations Center (SOC)**, permitindo análise de URLs, cabeçalhos de e-mail e indicadores de comprometimento (IOCs).
 
+![Status](https://img.shields.io/badge/status-active-brightgreen)
+![Python](https://img.shields.io/badge/python-3.x-blue)
+![Security](https://img.shields.io/badge/focus-cybersecurity-red)
+
 ---
 
 ## 🎯 Para que serve
